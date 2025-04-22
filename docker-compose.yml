@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  host_principal:
+    build:
+      context: .
+      dockerfile: docker/host_principal/Dockerfile
+    image: host_principal  
+    container_name: host_principal 
+    volumes:
+      - ./api:/app/api
+      - ./model:/app/model
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+      - ./db:/app/db 
+      - ./logs:/var/log 
+    networks:
+      secure_net:
+        aliases:
+          - host_principal
+        ipv4_address: 172.18.0.2
+    ports:
+      - "5000:5000"
+      - "22:22"
+      - "80:80"
+    environment:
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+      - TRUSTED_PROXIES=172.18.0.0/24
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    privileged: true
+    restart: unless-stopped
+
+  machine_interne:
+    build:
+      context: .
+      dockerfile: docker/machine_interne/Dockerfile
+    image: machine_interne
+    container_name: machine_interne
+    networks:
+      - secure_net
+    depends_on:
+      - host_principal
+    restart: unless-stopped
+
+  attaquant_externe:
+    build:
+      context: .
+      dockerfile: docker/attaquant_externe/Dockerfile
+    image: attaquant_externe
+    container_name: attaquant_externe
+    networks:
+      - secure_net
+    depends_on:
+      - host_principal
+    restart: unless-stopped
+
+networks:
+  secure_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/24
+          gateway: 172.18.0.1
